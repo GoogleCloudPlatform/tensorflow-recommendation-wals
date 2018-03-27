@@ -1,0 +1,11 @@
+.DS_Store
+model
+*.pyc
+__pycache__
+logs
+*.db
+jobs
+wals_ml_engine.egg-info
+dist
+airflow/deploy/config/settings.yaml
+airflow/deploy/deployment-settings.yaml
