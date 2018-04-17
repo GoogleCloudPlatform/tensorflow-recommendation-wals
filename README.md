@@ -86,7 +86,7 @@ Install other requirements not available from conda:
 
 ### Upload sample data to BigQuery
 
-This tutorial comes with a sample Google Analytics data set, containing page tracking events from the Austrian news site Kurier.at.  The schema file ga_sessions_sample_schema.json and data file ga_sessions_sample.json.gz are located in the folder 'data' in the tutorial code.  To upload this data set to BigQuery:
+This tutorial comes with a sample Google Analytics data set, containing page tracking events from the Austrian news site Kurier.at.  The schema file '''ga_sessions_sample_schema.json''' is located in the folder data in the tutorial code, and the data file '''ga_sessions_sample.json.gz''' is located in a public Cloud Storage bucket associated with this tutorial.  To upload this data set to BigQuery:
 
 1. Make a GCS bucket with the name recserve_[YOUR-PROJECT-ID]:
 
