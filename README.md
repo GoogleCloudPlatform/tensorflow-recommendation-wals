@@ -64,8 +64,9 @@ https://conda.io/docs/user-guide/install/index.html
 
 * Create environment and install packages:
 
-Install packages in requirements.txt:
+Install packages in conda.txt:
 
+    cd tensorflow-recommendation-wals
     conda create -y -n recserve
     source activate recserve
     conda install -y -n recserve --file conda.txt
