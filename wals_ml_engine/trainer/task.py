@@ -27,14 +27,14 @@ import wals
 def main(args):
   # process input file
   input_file = util.ensure_local_file(args['train_files'][0])
-  user_map, item_map, tr_sparse, test_sparse = model.create_test_and_train_sets(
+  user_map, item_map, tr_sparse, test_sparse, ratings = model.create_test_and_train_sets(
       args, input_file, args['data_type'])
 
   # train model
   output_row, output_col = model.train_model(args, tr_sparse)
 
   # save trained model to job directory
-  model.save_model(args, user_map, item_map, output_row, output_col)
+  model.save_model(args, user_map, item_map, output_row, output_col, ratings)
 
   # log results
   train_rmse = wals.get_rmse(output_row, output_col, tr_sparse)

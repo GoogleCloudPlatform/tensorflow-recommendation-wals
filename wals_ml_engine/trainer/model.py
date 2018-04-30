@@ -15,13 +15,13 @@
 """WALS model input data, training and predict functions."""
 
 import datetime
+import google.cloud.storage as storage
 import numpy as np
 import os
 import pandas as pd
 from scipy.sparse import coo_matrix
 import sh
 import tensorflow as tf
-
 import wals
 
 # ratio of train set size to test set size
@@ -56,6 +56,12 @@ OPTIMIZED_PARAMS_WEB = {
     'feature_wt_exp': 5.05,
 }
 
+ROW_MODEL_FILE = 'model/row.npy'
+COL_MODEL_FILE = 'model/col.npy'
+USER_MODEL_FILE = 'model/user.npy'
+ITEM_MODEL_FILE = 'model/item.npy'
+RATINGS_FILE = 'model/ratings.npy'
+USER_ITEM_DATA_FILE = 'data/recommendation_events.csv'
 
 def create_test_and_train_sets(args, input_file, data_type='ratings'):
   """Create test and train sets, for different input data types.
@@ -71,6 +77,7 @@ def create_test_and_train_sets(args, input_file, data_type='ratings'):
     array of item IDs for each column of the rating matrix
     sparse coo_matrix for training
     sparse coo_matrix for test
+    ratings array (1-d array of ratings tuples)
 
   Raises:
     ValueError: if invalid data_type is supplied
@@ -155,7 +162,7 @@ def _ratings_train_and_test(use_headers, delimiter, input_file):
   tr_sparse, test_sparse = _create_sparse_train_and_test(ratings,
                                                          n_users, n_items)
 
-  return ratings[:, 0], ratings[:, 1], tr_sparse, test_sparse
+  return ratings[:, 0], ratings[:, 1], tr_sparse, test_sparse, ratings
 
 
 def _page_views_train_and_test(input_file):
@@ -212,7 +219,7 @@ def _page_views_train_and_test(input_file):
                                                          ux + 1,
                                                          df_items.size)
 
-  return user_ux, pds_items.as_matrix(), tr_sparse, test_sparse
+  return user_ux, pds_items.as_matrix(), tr_sparse, test_sparse, pv_ratings
 
 
 def _create_sparse_train_and_test(ratings, n_users, n_items):
@@ -291,7 +298,7 @@ def train_model(args, tr_sparse):
   return output_row, output_col
 
 
-def save_model(args, user_map, item_map, row_factor, col_factor):
+def save_model(args, user_map, item_map, row_factor, col_factor, ratings):
   """Save the user map, item map, row factor and column factor matrices in numpy format.
 
   These matrices together constitute the "recommendation model."
@@ -317,9 +324,87 @@ def save_model(args, user_map, item_map, row_factor, col_factor):
   np.save(os.path.join(model_dir, 'item'), item_map)
   np.save(os.path.join(model_dir, 'row'), row_factor)
   np.save(os.path.join(model_dir, 'col'), col_factor)
+  np.save(os.path.join(model_dir, 'ratings'), ratings)
 
   if gs_model_dir:
     sh.gsutil('cp', '-r', os.path.join(model_dir, '*'), gs_model_dir)
+
+
+def load_model(args):
+  """Load an existing model, to use as a warm start for the ratings
+     matrix and row and col factors.
+
+  Loads the four npy model files from the model directory given
+  in args.model_path.
+
+  Also loads a CSV file containing new event data, not present in the
+  existing model. Assumes, for efficiency, that the events are sorted
+  by client_id and item_id.  This should be easy to enforce in the query
+  that outputs this data.
+
+  Args:
+    args:         input args to training job
+  """
+  local_model_path = '/tmp'
+
+  # download files from GCS to local storage
+  os.makedirs(os.path.join(local_model_path, 'model'), exist_ok=True)
+  os.makedirs(os.path.join(local_model_path, 'data'), exist_ok=True)
+  client = storage.Client()
+  bucket = client.get_bucket(args['model_path'])
+
+  logging.info('Downloading blobs.')
+
+  model_files = [ROW_MODEL_FILE, COL_MODEL_FILE, USER_MODEL_FILE,
+                 ITEM_MODEL_FILE, RATINGS_FILE, USER_ITEM_DATA_FILE]
+  for model_file in model_files:
+    blob = bucket.blob(model_file)
+    with open(os.path.join(local_model_path, model_file), 'wb') as file_obj:
+      blob.download_to_file(file_obj)
+
+  logging.info('Finished downloading blobs.')
+
+  # load npy arrays for user/item factors and user/item maps
+  user_factor = np.load(os.path.join(local_model_path, ROW_MODEL_FILE))
+  item_factor = np.load(os.path.join(local_model_path, COL_MODEL_FILE))
+  user_map = np.load(os.path.join(local_model_path, USER_MODEL_FILE))
+  item_map = np.load(os.path.join(local_model_path, ITEM_MODEL_FILE))
+  ratings = np.load(os.path.join(local_model_path, RATINGS_FILE))
+
+  # read lines in new data file and merge into user/item maps
+  # assume data is sorted by user and item id.
+  new_events = []
+  new_users = []
+  new_items = []
+  with open(os.path.join(local_model_path, USER_ITEM_DATA_FILE)) as f:
+    for line in f:
+      client_id, article_id, view_time = line.split(",")
+      client_id = int(client_id)
+      article_id = int(article_id)
+      view_time = int(view_time)
+
+      user_ix = np.searchsorted(user_map, client_id)
+      if user_ix = 0:
+        new_users.push(client_id)
+      elif user_ix = user_map.size:
+        new_users.append(client_id)
+
+      #item_ix = np.searchsorted(item_map, article_id)
+      #
+      new_events.append((user_ix, item_ix, view_time))
+
+  # append new data arrays to old ones and return
+  new_event_arr = np.array(new_events)
+  ratings = ratings.append(new_event_arr)
+
+  #new_user_map = ...
+  #new_item_map = ...
+
+  # initialize factors for new users / items with zeroes
+  #user_factor.append(np.zeros())
+  #item_factor.append(np.zeros())
+
+  return user_factor, item_factor, user_map, item_map, ratings
 
 
 def generate_recommendations(user_idx, user_rated, row_factor, col_factor, k):
