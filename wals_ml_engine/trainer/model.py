@@ -384,9 +384,9 @@ def load_model(args):
       view_time = int(view_time)
 
       user_ix = np.searchsorted(user_map, client_id)
-      if user_ix = 0:
+      if user_ix == 0:
         new_users.push(client_id)
-      elif user_ix = user_map.size:
+      elif user_ix == user_map.size:
         new_users.append(client_id)
 
       #item_ix = np.searchsorted(item_map, article_id)
