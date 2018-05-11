@@ -5,7 +5,7 @@ algorithm in TensorFlow.  Components include:
 
 - Recommendation model code, and scripts to train and tune the model on ML Engine
 - A REST endpoint using [Google Cloud Endpoints](https://cloud.google.com/endpoints/) for serving recommendations
-- An Airflow server running on GKE for orchestrating scheduled model training
+- An Airflow server managed by Cloud Composer (or alternatively, running on GKE) for running scheduled model training
 
 
 ## Before you begin
@@ -20,8 +20,9 @@ algorithm in TensorFlow.  Components include:
   * Cloud Resource Manager
   * ML Engine
   * App Engine Admin
-  * Container Engine
-  * Cloud SQL API
+  * Container Engine (if using Airflow on GKE)
+  * Cloud SQL API    (if using Airflow on GKE)
+  * Cloud Composer API (if using Cloud Composer for Airflow)
 
 
 ## Installation
@@ -189,9 +190,45 @@ This will take several minutes.
 
 ### Deploy the Airflow service
 
-#### Create an Airflow cluster running on GKE
+#### Option 1 (recommended): Use Cloud Composer
+Cloud Composer is the GCP managed service for Airflow. It is in beta at the time this code is published.
 
-This can be done in parallel with the previous step in a different shell.
+1. Create a new Cloud Composer environment in your project:
+
+    CC_ENV=composer-recserve
+
+    gcloud beta composer environments create $CC_ENV --location us-central1
+
+This process takes a few minutes to complete.
+
+2. Get the name of the Cloud Storage bucket created for you by Cloud Composer:
+
+    gcloud beta composer environments describe $CC_ENV \
+      --location us-central1 --format="csv[no-heading](config.dagGcsPrefix)" | sed 's/.\{5\}$//'
+
+In the output, you see the location of the Cloud Storage bucket, like this:
+
+    gs://[region-environment_name-random_id-bucket]
+
+This bucket contains subfolders for DAGs and plugins.
+
+3. Set a shell variable that contains the path to that output:
+
+    export AIRFLOW_BUCKET="gs://[region-environment_name-random_id-bucket]"
+
+4. Copy the DAG training.py file to the dags folder in your Cloud Composer bucket:
+
+    gsutil cp airflow/dags/training.py ${AIRFLOW_BUCKET}/dags
+
+5. Import the solution plugins to your composer environment:
+
+    gcloud beta composer environments storage plugins import \
+      --location us-central1 --environment ${CC_ENV} --source airflow/plugins/
+
+
+#### Option 2: Create an Airflow cluster running on GKE
+
+This can be done in parallel with the app deploy step in a different shell.
 
 1. Deploy the Airflow service using the script in airflow/deploy:
 
@@ -242,7 +279,23 @@ This will take a few minutes to complete.
 The Airflow web console can be used to update the schedule for the DAG, inspect logs, manually
 execute tasks, etc.
 
-#### Airflow on GKE
+#### Option 1 (Cloud Composer)
+
+Note that after creating the Cloud Composer environment, it takes approximately 25
+minutes for the web interface to finish hosting and become accessible.
+
+Type this command to print the URL for the Cloud Composer web console:
+
+    gcloud beta composer environments describe $CC_ENV --location us-central1 \
+        --format="csv[no-heading](config.airflow_uri)"
+
+You see output that looks like the following:
+
+    https://x6c9aa336e72ad0dd-tp.appspot.com
+
+To access the Airflow console for your Cloud Composer instance, go to the URL displayed in the output.
+
+#### Option 2 (GKE)
 You can find the URL and login credentials for the airflow admin interface in the file
 airflow/deploy/deployment-settings.yaml.
 
