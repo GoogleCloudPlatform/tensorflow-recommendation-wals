@@ -5,3 +5,4 @@ sh
 retrying
 pyyaml
 oauth2client==3.0.0
+pathlib2

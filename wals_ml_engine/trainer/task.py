@@ -27,6 +27,10 @@ import wals
 def main(args):
   # process input file
   input_file = util.ensure_local_file(args['train_files'][0])
+  if args['model_path']:
+      user_factor, item_factor, user_map, item_map, rating=model.load_model(args)
+  #Kuba
+  #exit (1)
   user_map, item_map, tr_sparse, test_sparse, ratings = model.create_test_and_train_sets(
       args, input_file, args['data_type'])
 
@@ -145,6 +149,11 @@ def parse_arguments():
       help='Use optimized hyperparameters'
   )
 
+  parser.add_argument(
+    '--model-path',
+    help='GCS bucket to read latest model'
+  )
+
   args = parser.parse_args()
   arguments = args.__dict__
 
@@ -196,5 +205,3 @@ def parse_arguments():
 if __name__ == '__main__':
   job_args = parse_arguments()
   main(job_args)
-
-

@@ -23,6 +23,8 @@ from scipy.sparse import coo_matrix
 import sh
 import tensorflow as tf
 import wals
+from pathlib2 import Path  # python 2 backport
+
 
 # ratio of train set size to test set size
 TEST_SET_RATIO = 10
@@ -345,15 +347,23 @@ def load_model(args):
   Args:
     args:         input args to training job
   """
+
   local_model_path = '/tmp'
 
   # download files from GCS to local storage
-  os.makedirs(os.path.join(local_model_path, 'model'), exist_ok=True)
-  os.makedirs(os.path.join(local_model_path, 'data'), exist_ok=True)
+
+  #exist_ok requires Python 3pip
+  #os.makedirs(os.path.join(local_model_path, 'model'), exist_ok=True)
+  #os.makedirs(os.path.join(local_model_path, 'data'), exist_ok=True)
+
+  Path(os.path.join(local_model_path, 'model')).mkdir(exist_ok=True)
+  Path(os.path.join(local_model_path, 'data')).mkdir(exist_ok=True)
+
   client = storage.Client()
+
   bucket = client.get_bucket(args['model_path'])
 
-  logging.info('Downloading blobs.')
+  tf.logging.info('Downloading blobs.')
 
   model_files = [ROW_MODEL_FILE, COL_MODEL_FILE, USER_MODEL_FILE,
                  ITEM_MODEL_FILE, RATINGS_FILE, USER_ITEM_DATA_FILE]
@@ -362,7 +372,7 @@ def load_model(args):
     with open(os.path.join(local_model_path, model_file), 'wb') as file_obj:
       blob.download_to_file(file_obj)
 
-  logging.info('Finished downloading blobs.')
+  tf.logging.info('Finished downloading blobs.')
 
   # load npy arrays for user/item factors and user/item maps
   user_factor = np.load(os.path.join(local_model_path, ROW_MODEL_FILE))
@@ -377,6 +387,7 @@ def load_model(args):
   new_users = []
   new_items = []
   with open(os.path.join(local_model_path, USER_ITEM_DATA_FILE)) as f:
+    next(f) #skip header
     for line in f:
       client_id, article_id, view_time = line.split(",")
       client_id = int(client_id)
@@ -384,18 +395,23 @@ def load_model(args):
       view_time = int(view_time)
 
       user_ix = np.searchsorted(user_map, client_id)
-      if user_ix = 0:
-        new_users.push(client_id)
-      elif user_ix = user_map.size:
+      if user_ix == 0:
+        new_users.insert(user_ix,client_id)
+      elif user_ix == user_map.size:
         new_users.append(client_id)
 
-      #item_ix = np.searchsorted(item_map, article_id)
-      #
+      #just following the above schema blindly
+      item_ix = np.searchsorted(item_map, article_id)
+      if item_ix == 0:
+        new_items.insert(item_ix,article_id)
+      elif item_ix == item_map.size:
+        new_items.append(article_id)
+
       new_events.append((user_ix, item_ix, view_time))
 
   # append new data arrays to old ones and return
   new_event_arr = np.array(new_events)
-  ratings = ratings.append(new_event_arr)
+  ratings = np.append((ratings,new_event_arr))
 
   #new_user_map = ...
   #new_item_map = ...
@@ -448,4 +464,3 @@ def generate_recommendations(user_idx, user_rated, row_factor, col_factor, k):
   recommended_items.reverse()
 
   return recommended_items
-
