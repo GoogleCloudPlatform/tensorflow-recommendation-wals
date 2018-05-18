@@ -25,13 +25,20 @@ import wals
 
 
 def main(args):
-  # process input file
   input_file = util.ensure_local_file(args['train_files'][0])
-  user_map, item_map, tr_sparse, test_sparse, ratings = model.create_test_and_train_sets(
-      args, input_file, args['data_type'])
+  if args['model_path']:
+    # append to existing model
+    row_init, col_init, user_map, item_map, ratings = model.load_model(args, input_file)
+    tr_sparse, test_sparse = create_sparse_train_and_test(len(user_map), len(item_map), ratings)
+  else:
+    # process input file
+    user_map, item_map, tr_sparse, test_sparse, ratings = model.create_test_and_train_sets(
+        args, input_file, args['data_type'])
+    row_init = None
+    col_init = None
 
   # train model
-  output_row, output_col = model.train_model(args, tr_sparse)
+  output_row, output_col = model.train_model(args, tr_sparse, row_init, col_init)
 
   # save trained model to job directory
   model.save_model(args, user_map, item_map, output_row, output_col, ratings)
@@ -145,6 +152,11 @@ def parse_arguments():
       help='Use optimized hyperparameters'
   )
 
+  parser.add_argument(
+    '--model-path',
+    help='GCS bucket to read latest model'
+  )
+
   args = parser.parse_args()
   arguments = args.__dict__
 
@@ -196,5 +208,3 @@ def parse_arguments():
 if __name__ == '__main__':
   job_args = parse_arguments()
   main(job_args)
-
-

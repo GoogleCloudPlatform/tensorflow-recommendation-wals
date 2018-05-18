@@ -23,6 +23,8 @@ from scipy.sparse import coo_matrix
 import sh
 import tensorflow as tf
 import wals
+from pathlib2 import Path  # python 2 backport
+
 
 # ratio of train set size to test set size
 TEST_SET_RATIO = 10
@@ -61,7 +63,7 @@ COL_MODEL_FILE = 'model/col.npy'
 USER_MODEL_FILE = 'model/user.npy'
 ITEM_MODEL_FILE = 'model/item.npy'
 RATINGS_FILE = 'model/ratings.npy'
-USER_ITEM_DATA_FILE = 'data/recommendation_events.csv'
+
 
 def create_test_and_train_sets(args, input_file, data_type='ratings'):
   """Create test and train sets, for different input data types.
@@ -159,7 +161,7 @@ def _ratings_train_and_test(use_headers, delimiter, input_file):
     ratings[:, 0] -= 1
     ratings[:, 1] -= 1
 
-  tr_sparse, test_sparse = _create_sparse_train_and_test(ratings,
+  tr_sparse, test_sparse = create_sparse_train_and_test(ratings,
                                                          n_users, n_items)
 
   return ratings[:, 0], ratings[:, 1], tr_sparse, test_sparse, ratings
@@ -215,14 +217,14 @@ def _page_views_train_and_test(input_file):
   user_ux = np.asarray(user_ux)
 
   # create train and test sets
-  tr_sparse, test_sparse = _create_sparse_train_and_test(pv_ratings,
+  tr_sparse, test_sparse = create_sparse_train_and_test(pv_ratings,
                                                          ux + 1,
                                                          df_items.size)
 
   return user_ux, pds_items.as_matrix(), tr_sparse, test_sparse, pv_ratings
 
 
-def _create_sparse_train_and_test(ratings, n_users, n_items):
+def create_sparse_train_and_test(ratings, n_users, n_items):
   """Given ratings, create sparse matrices for train and test sets.
 
   Args:
@@ -253,7 +255,7 @@ def _create_sparse_train_and_test(ratings, n_users, n_items):
   return tr_sparse, test_sparse
 
 
-def train_model(args, tr_sparse):
+def train_model(args, tr_sparse, row_init=None, col_init=None):
   """Instantiate WALS model and use "simple_train" to factorize the matrix.
 
   Args:
@@ -281,7 +283,9 @@ def train_model(args, tr_sparse):
                                                                 args['weights'],
                                                                 wt_type,
                                                                 feature_wt_exp,
-                                                                obs_wt)
+                                                                obs_wt,
+                                                                row_init,
+                                                                col_init)
 
   # factorize matrix
   session = wals.simple_train(model, input_tensor, num_iters)
@@ -330,7 +334,7 @@ def save_model(args, user_map, item_map, row_factor, col_factor, ratings):
     sh.gsutil('cp', '-r', os.path.join(model_dir, '*'), gs_model_dir)
 
 
-def load_model(args):
+def load_model(args, input_file):
   """Load an existing model, to use as a warm start for the ratings
      matrix and row and col factors.
 
@@ -340,29 +344,32 @@ def load_model(args):
   Also loads a CSV file containing new event data, not present in the
   existing model. Assumes, for efficiency, that the events are sorted
   by client_id and item_id.  This should be easy to enforce in the query
-  that outputs this data.
+  that generates this data.
 
   Args:
     args:         input args to training job
   """
+
   local_model_path = '/tmp'
 
   # download files from GCS to local storage
-  os.makedirs(os.path.join(local_model_path, 'model'), exist_ok=True)
-  os.makedirs(os.path.join(local_model_path, 'data'), exist_ok=True)
+  Path(os.path.join(local_model_path, 'model')).mkdir(exist_ok=True)
+  Path(os.path.join(local_model_path, 'data')).mkdir(exist_ok=True)
+
   client = storage.Client()
+
   bucket = client.get_bucket(args['model_path'])
 
-  logging.info('Downloading blobs.')
+  tf.logging.info('Downloading blobs.')
 
   model_files = [ROW_MODEL_FILE, COL_MODEL_FILE, USER_MODEL_FILE,
-                 ITEM_MODEL_FILE, RATINGS_FILE, USER_ITEM_DATA_FILE]
+                 ITEM_MODEL_FILE, RATINGS_FILE]
   for model_file in model_files:
     blob = bucket.blob(model_file)
     with open(os.path.join(local_model_path, model_file), 'wb') as file_obj:
       blob.download_to_file(file_obj)
 
-  logging.info('Finished downloading blobs.')
+  tf.logging.info('Finished downloading blobs.')
 
   # load npy arrays for user/item factors and user/item maps
   user_factor = np.load(os.path.join(local_model_path, ROW_MODEL_FILE))
@@ -376,7 +383,8 @@ def load_model(args):
   new_events = []
   new_users = []
   new_items = []
-  with open(os.path.join(local_model_path, USER_ITEM_DATA_FILE)) as f:
+  with open(input_file) as f:
+    next(f) #skip header
     for line in f:
       client_id, article_id, view_time = line.split(",")
       client_id = int(client_id)
@@ -384,25 +392,25 @@ def load_model(args):
       view_time = int(view_time)
 
       user_ix = np.searchsorted(user_map, client_id)
-      if user_ix == 0:
-        new_users.push(client_id)
-      elif user_ix == user_map.size:
+      if user_ix == 0 || user_ix == user_map.size:
         new_users.append(client_id)
 
-      #item_ix = np.searchsorted(item_map, article_id)
-      #
+      #just following the above schema blindly
+      item_ix = np.searchsorted(item_map, article_id)
+      if item_ix == 0 || item_ix == item_map.size:
+        new_items.append(article_id)
+
       new_events.append((user_ix, item_ix, view_time))
 
   # append new data arrays to old ones and return
   new_event_arr = np.array(new_events)
-  ratings = ratings.append(new_event_arr)
-
-  #new_user_map = ...
-  #new_item_map = ...
+  ratings = np.append(ratings, new_event_arr)
+  new_user_map = np.append(user_map, new_users)
+  new_item_map = np.append(item_map, new_items)
 
   # initialize factors for new users / items with zeroes
-  #user_factor.append(np.zeros())
-  #item_factor.append(np.zeros())
+  user_factor.append(np.zeros(len(new_users)))
+  item_factor.append(np.zeros(len(new_items)))
 
   return user_factor, item_factor, user_map, item_map, ratings
 
@@ -448,4 +456,3 @@ def generate_recommendations(user_idx, user_rated, row_factor, col_factor, k):
   recommended_items.reverse()
 
   return recommended_items
-

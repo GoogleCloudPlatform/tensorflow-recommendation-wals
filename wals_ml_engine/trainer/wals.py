@@ -109,7 +109,7 @@ def make_wts(data, wt_type, obs_wt, feature_wt_exp, axis):
 
 def wals_model(data, dim, reg, unobs, weights=False,
                wt_type=LINEAR_RATINGS, feature_wt_exp=None,
-               obs_wt=LINEAR_OBS_W):
+               obs_wt=LINEAR_OBS_W, row_init=None, col_init=None):
   """Create the WALSModel and input, row and col factor tensors.
 
   Args:
@@ -130,17 +130,24 @@ def wals_model(data, dim, reg, unobs, weights=False,
   """
   row_wts = None
   col_wts = None
+  row_factor = None
+  col_factor = None
 
   num_rows = data.shape[0]
   num_cols = data.shape[1]
 
+  # Create row and column weights if specified.  Row weights are always
+  # set to unity, since we don't weight users differently.
   if weights:
     assert feature_wt_exp is not None
     row_wts = np.ones(num_rows)
     col_wts = make_wts(data, wt_type, obs_wt, feature_wt_exp, 0)
 
-  row_factor = None
-  col_factor = None
+  # if row or col factor init values not passed in, set to random
+  if row_init is None:
+    row_init = "random"
+  if col_init is None:
+    col_init = "random"
 
   with tf.Graph().as_default():
 
@@ -152,7 +159,9 @@ def wals_model(data, dim, reg, unobs, weights=False,
                                         unobserved_weight=unobs,
                                         regularization=reg,
                                         row_weights=row_wts,
-                                        col_weights=col_wts)
+                                        col_weights=col_wts,
+                                        row_init=row_init,
+                                        col_init=col_init)
 
     # retrieve the row and column factors
     row_factor = model.row_factors[0]
