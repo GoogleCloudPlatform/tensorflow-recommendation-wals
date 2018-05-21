@@ -214,7 +214,7 @@ def _page_views_train_and_test(input_file):
 
   # convert ratings list and user map to np array
   pv_ratings = np.asarray(pv_ratings)
-  user_ux = np.asarray(user_ux)
+  user_ux = np.asarray(user_ux, dtype=np.uint64)
 
   # create train and test sets
   tr_sparse, test_sparse = create_sparse_train_and_test(pv_ratings,
@@ -381,6 +381,7 @@ def load_model(args, input_file):
   # read lines in new data file and merge into user/item maps
   # assume data is sorted by user and item id.
   new_events = []
+  mapped_events = []
   new_users = []
   new_items = []
   with open(input_file) as f:
@@ -392,18 +393,27 @@ def load_model(args, input_file):
       view_time = int(view_time)
 
       user_ix = np.searchsorted(user_map, client_id)
-      if user_ix == 0 || user_ix == user_map.size:
-        new_users.append(client_id)
-
-      #just following the above schema blindly
       item_ix = np.searchsorted(item_map, article_id)
-      if item_ix == 0 || item_ix == item_map.size:
-        new_items.append(article_id)
 
-      new_events.append((user_ix, item_ix, view_time))
+      new_item_or_user = False
+      if user_map[user_ix] != client_id:
+        new_users.append(client_id)
+        new_item_or_user = True
+      if item_map[item_ix] != article_id:
+        new_items.append(article_id)
+        new_item_or_user = True
+
+      if new_item_or_user:
+        new_events.append((client_id, article_id, view_time))
+      else:
+        mapped_events.append((user_ix, item_ix, view_time))
+
+  # produce updated, sorted user and item maps, along with factors
+  user_arr = np.hstack(user_map, user_factor)
+  new_user_arr = np.hstack(new_users, np.zeros(len(new_users)))
 
   # append new data arrays to old ones and return
-  new_event_arr = np.array(new_events)
+  new_event_arr = np.array(mapped_events)
   ratings = np.append(ratings, new_event_arr)
   new_user_map = np.append(user_map, new_users)
   new_item_map = np.append(item_map, new_items)
