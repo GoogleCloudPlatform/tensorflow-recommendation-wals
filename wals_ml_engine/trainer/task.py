@@ -26,7 +26,7 @@ import wals
 
 def main(args):
   input_file = util.ensure_local_file(args['train_files'][0])
-  if args['model_path']:
+  if 'model_path' in args:
     # append to existing model
     row_init, col_init, user_map, item_map, ratings = model.load_model(args, input_file)
     tr_sparse, test_sparse = create_sparse_train_and_test(len(user_map), len(item_map), ratings)
@@ -113,7 +113,13 @@ def parse_arguments():
   # other args
   parser.add_argument(
       '--output-dir',
+      type=str,
       help='GCS location to write model, overriding job-dir',
+  )
+  parser.add_argument(
+      '--model-path',
+      type=str,
+      help='GCS location of pre-existing model, to use for warm start',
   )
   parser.add_argument(
       '--verbose-logging',
@@ -150,11 +156,6 @@ def parse_arguments():
       default=False,
       action='store_true',
       help='Use optimized hyperparameters'
-  )
-
-  parser.add_argument(
-    '--model-path',
-    help='GCS bucket to read latest model'
   )
 
   args = parser.parse_args()
