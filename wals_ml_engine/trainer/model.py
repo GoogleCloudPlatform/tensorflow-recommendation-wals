@@ -334,7 +334,7 @@ def save_model(args, user_map, item_map, row_factor, col_factor, ratings):
     sh.gsutil('cp', '-r', os.path.join(model_dir, '*'), gs_model_dir)
 
 
-def load_model(args, input_file):
+def load_model(model_path, input_file):
   """Load an existing model, to use as a warm start for the ratings
      matrix and row and col factors.
 
@@ -342,35 +342,38 @@ def load_model(args, input_file):
   in args.model_path.
 
   Also loads a CSV file containing new event data, not present in the
-  existing model. Assumes, for efficiency, that the events are sorted
-  by client_id and item_id.  This should be easy to enforce in the query
-  that generates this data.
+  existing model.
 
   Args:
-    args:         input args to training job
+    model_path:   path to existing model files
     input_file:   input file containing new events
+
+  Returns:
+    initial user and item factors, new map arrays, and updated ratings
   """
 
-  local_model_path = '/tmp'
+  if model_path.startswith('gs://'):
+    local_model_path = '/tmp'
+    # download files from GCS to local storage
+    Path(os.path.join(local_model_path, 'model')).mkdir(exist_ok=True)
+    Path(os.path.join(local_model_path, 'data')).mkdir(exist_ok=True)
 
-  # download files from GCS to local storage
-  Path(os.path.join(local_model_path, 'model')).mkdir(exist_ok=True)
-  Path(os.path.join(local_model_path, 'data')).mkdir(exist_ok=True)
+    client = storage.Client()
 
-  client = storage.Client()
+    bucket = client.get_bucket(args['model_path'])
 
-  bucket = client.get_bucket(args['model_path'])
+    tf.logging.info('Downloading blobs.')
 
-  tf.logging.info('Downloading blobs.')
+    model_files = [ROW_MODEL_FILE, COL_MODEL_FILE, USER_MODEL_FILE,
+                   ITEM_MODEL_FILE, RATINGS_FILE]
+    for model_file in model_files:
+      blob = bucket.blob(model_file)
+      with open(os.path.join(local_model_path, model_file), 'wb') as file_obj:
+        blob.download_to_file(file_obj)
 
-  model_files = [ROW_MODEL_FILE, COL_MODEL_FILE, USER_MODEL_FILE,
-                 ITEM_MODEL_FILE, RATINGS_FILE]
-  for model_file in model_files:
-    blob = bucket.blob(model_file)
-    with open(os.path.join(local_model_path, model_file), 'wb') as file_obj:
-      blob.download_to_file(file_obj)
-
-  tf.logging.info('Finished downloading blobs.')
+    tf.logging.info('Finished downloading blobs.')
+  else:
+    local_model_path = model_path
 
   # load npy arrays for user/item factors and user/item maps
   user_factor = np.load(os.path.join(local_model_path, ROW_MODEL_FILE))

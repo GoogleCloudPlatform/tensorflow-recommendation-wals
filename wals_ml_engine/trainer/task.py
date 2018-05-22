@@ -28,7 +28,7 @@ def main(args):
   input_file = util.ensure_local_file(args['train_files'][0])
   if 'model_path' in args:
     # append to existing model
-    row_init, col_init, user_map, item_map, ratings = model.load_model(args, input_file)
+    row_init, col_init, user_map, item_map, ratings = model.load_model(args['model_path'], input_file)
     tr_sparse, test_sparse = create_sparse_train_and_test(len(user_map), len(item_map), ratings)
   else:
     # process input file
