@@ -29,7 +29,7 @@ def main(args):
   if 'model_path' in args:
     # append to existing model
     row_init, col_init, user_map, item_map, ratings = model.load_model(args['model_path'], input_file)
-    tr_sparse, test_sparse = create_sparse_train_and_test(len(user_map), len(item_map), ratings)
+    tr_sparse, test_sparse = model.create_sparse_train_and_test(ratings, len(user_map), len(item_map))
   else:
     # process input file
     user_map, item_map, tr_sparse, test_sparse, ratings = model.create_test_and_train_sets(

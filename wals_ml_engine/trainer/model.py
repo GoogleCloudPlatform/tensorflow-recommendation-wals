@@ -434,9 +434,8 @@ def load_model(model_path, input_file):
     item_ix = np.searchsorted(new_item_map, e[1])
     mapped_events.append((user_ix, item_ix, e[2]))
 
-  # append new data arrays to old ones and return
-  new_event_arr = np.array(mapped_events)
-  ratings = np.append(ratings, new_event_arr)
+  # append new events and return
+  new_ratings = np.concatenate((ratings, mapped_events))
 
   return new_user_factor, new_item_factor, new_user_map, new_item_map, new_ratings
 
