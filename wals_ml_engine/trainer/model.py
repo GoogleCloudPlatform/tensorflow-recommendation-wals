@@ -348,6 +348,7 @@ def load_model(args, input_file):
 
   Args:
     args:         input args to training job
+    input_file:   input file containing new events
   """
 
   local_model_path = '/tmp'
@@ -408,21 +409,33 @@ def load_model(args, input_file):
       else:
         mapped_events.append((user_ix, item_ix, view_time))
 
-  # produce updated, sorted user and item maps, along with factors
-  user_arr = np.hstack(user_map, user_factor)
-  new_user_arr = np.hstack(new_users, np.zeros(len(new_users)))
+  # Produce updated, sorted user and item maps and factors.
+  # Factors for new users/items are set to zeros.
+  n_factor = user_factor.shape[1]
+
+  all_users = np.concatenate((user_map, new_users))
+  sorted_user_ix = np.argsort(all_users)
+  all_user_factor = np.vstack((user_factor, np.zeros((len(new_users), n_factor))))
+  new_user_factor = all_user_factor[sorted_user_ix]
+  new_user_map = all_users[sorted_user_ix]
+
+  all_items = np.concatenate((item_map, new_items))
+  sorted_item_ix = np.argsort(all_items)
+  all_item_factor = np.vstack((item_factor, np.zeros((len(new_items), n_factor))))
+  new_item_factor = all_item_factor[sorted_item_ix]
+  new_item_map = all_items[sorted_item_ix]
+
+  # map new events
+  for e in new_events:
+    user_ix = np.searchsorted(new_user_map, e[0])
+    item_ix = np.searchsorted(new_item_map, e[1])
+    mapped_events.append((user_ix, item_ix, e[2]))
 
   # append new data arrays to old ones and return
   new_event_arr = np.array(mapped_events)
   ratings = np.append(ratings, new_event_arr)
-  new_user_map = np.append(user_map, new_users)
-  new_item_map = np.append(item_map, new_items)
 
-  # initialize factors for new users / items with zeroes
-  user_factor.append(np.zeros(len(new_users)))
-  item_factor.append(np.zeros(len(new_items)))
-
-  return user_factor, item_factor, user_map, item_map, ratings
+  return new_user_factor, new_item_factor, new_user_map, new_item_map, new_ratings
 
 
 def generate_recommendations(user_idx, user_rated, row_factor, col_factor, k):
