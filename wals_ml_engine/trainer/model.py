@@ -397,45 +397,44 @@ def load_model(model_path, input_file):
       view_time = int(view_time)
 
       user_ix = np.searchsorted(user_map, client_id)
-      item_ix = np.searchsorted(item_map, article_id)
-
-      new_item_or_user = False
       if user_map[user_ix] != client_id:
         new_users.append(client_id)
-        new_item_or_user = True
+
+      item_ix = np.searchsorted(item_map, article_id)
       if item_map[item_ix] != article_id:
         new_items.append(article_id)
-        new_item_or_user = True
 
-      if new_item_or_user:
-        new_events.append((client_id, article_id, view_time))
-      else:
-        mapped_events.append((user_ix, item_ix, view_time))
+      new_events.append((client_id, article_id, view_time))
 
   # Produce updated, sorted user and item maps and factors.
   # Factors for new users/items are set to zeros.
   n_factor = user_factor.shape[1]
 
-  all_users = np.concatenate((user_map, new_users))
+  all_users = np.concatenate((user_map, np.asarray(new_users, dtype=np.uint64)))
   sorted_user_ix = np.argsort(all_users)
   all_user_factor = np.vstack((user_factor, np.zeros((len(new_users), n_factor))))
   new_user_factor = all_user_factor[sorted_user_ix]
   new_user_map = all_users[sorted_user_ix]
 
-  all_items = np.concatenate((item_map, new_items))
+  all_items = np.concatenate((item_map, np.asarray(new_items, dtype=np.uint64)))
   sorted_item_ix = np.argsort(all_items)
   all_item_factor = np.vstack((item_factor, np.zeros((len(new_items), n_factor))))
   new_item_factor = all_item_factor[sorted_item_ix]
   new_item_map = all_items[sorted_item_ix]
 
-  # map new events
+  # map events
   for e in new_events:
     user_ix = np.searchsorted(new_user_map, e[0])
     item_ix = np.searchsorted(new_item_map, e[1])
     mapped_events.append((user_ix, item_ix, e[2]))
 
-  # append new events and return
-  new_ratings = np.concatenate((ratings, mapped_events))
+  for e in ratings:
+    user_ix = np.searchsorted(new_user_map, user_map[e[0]])
+    item_ix = np.searchsorted(new_item_map, item_map[e[1]])
+    mapped_events.append((user_ix, item_ix, e[2]))
+
+  # create new ratings and return
+  new_ratings = np.asarray(mapped_events)
 
   return new_user_factor, new_item_factor, new_user_map, new_item_map, new_ratings
 
