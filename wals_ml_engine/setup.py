@@ -15,7 +15,7 @@
 from setuptools import find_packages
 from setuptools import setup
 
-REQUIRED_PACKAGES = ['sh']
+REQUIRED_PACKAGES = ['sh', 'pathlib2', 'google-cloud-storage']
 
 setup(
     name='wals_ml_engine',
