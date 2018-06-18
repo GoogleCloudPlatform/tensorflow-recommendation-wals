@@ -6,7 +6,7 @@ import tempfile
 
 import tensorflow as tf
 import apache_beam as beam
-from apache_beam.io import tfrecordio
+from apache_beam.io import tfrecordio, textio
 import tensorflow_transform as tft
 from tensorflow_transform.beam import impl as beam_impl
 from tensorflow_transform.coders import example_proto_coder
@@ -46,21 +46,37 @@ def preprocess_tft(rowdict):
   result = {
     'userId' : tft.string_to_int(rowdict['clientId'], vocab_filename='vocab_users'),
     'itemId' : tft.string_to_int(rowdict['contentId'], vocab_filename='vocab_items'),
-    'rating' : 0.3 * (1 + (rowdict['timeOnPage'] - median)/median)
+    'rating' : rowdict['timeOnPage']
   }
+
+  # 'rating' : 0.3 * (1 + (rowdict['timeOnPage'] - median)/median)
   # cap the rating at 1.0
-  result['rating'] = tf.where(tf.less(result['rating'], tf.ones(tf.shape(result['rating']))),
-                             result['rating'], tf.ones(tf.shape(result['rating'])))
+  #result['rating'] = tf.where(tf.less(result['rating'], tf.ones(tf.shape(result['rating']))),
+  #                           result['rating'], tf.ones(tf.shape(result['rating'])))
+
   return result
 
-def create_vocab_files(output_dir, raw_data, raw_data_metadata):
+def create_vocab_and_rating_files(output_dir, raw_data, raw_data_metadata):
   raw_dataset = (raw_data, raw_data_metadata)
   transformed_dataset, transform_fn = (
       raw_dataset | beam_impl.AnalyzeAndTransformDataset(preprocess_tft))
   transformed_data, transformed_metadata = transformed_dataset
+
+  # write vocab files
   _ = (transform_fn
        | 'WriteTransformFn' >>
        transform_fn_io.WriteTransformFn(os.path.join(output_dir, 'transform_fn')))
+
+  # write ratings
+  class CsvTupleCoder(beam.coders.Coder):
+    def encode(self, value):
+      return ",".join(map(str,value))
+  csv_coder = CsvTupleCoder()
+  _ = (transformed_data
+       | 'map_ratings' >> beam.Map(lambda x : (x['userId'], x['itemId'], x['rating']))
+       | 'WriteTransformedData' >> textio.WriteToText(os.path.join(output_dir, 'ratings.csv'),
+            coder=csv_coder, num_shards=1, shard_name_template=''))
+
   return transformed_data
 
 def write_count(a, outdir, basename):
@@ -145,9 +161,13 @@ def preprocess(query, in_test_mode):
                    for colname in 'clientId,contentId'.split(',')
   }
   raw_data_schema.update({
-      colname : dataset_schema.ColumnSchema(tf.float32, [], dataset_schema.FixedColumnRepresentation())
-                   for colname in 'timeOnPage'.split(',')
-    })
+    'timeOnPage' : dataset_schema.ColumnSchema(tf.int64, [], dataset_schema.FixedColumnRepresentation())
+  })
+
+  #raw_data_schema.update({
+  #    colname : dataset_schema.ColumnSchema(tf.float32, [], dataset_schema.FixedColumnRepresentation())
+  #                 for colname in 'timeOnPage'.split(',')
+  #  })
   raw_data_metadata = dataset_metadata.DatasetMetadata(dataset_schema.Schema(raw_data_schema))
 
   # run Beam
@@ -158,7 +178,7 @@ def preprocess(query, in_test_mode):
                   | 'read' >> beam.io.Read(beam.io.BigQuerySource(query=query, use_standard_sql=False)))
 
       # create vocab files
-      transformed_data = create_vocab_files(output_dir, raw_data, raw_data_metadata)
+      transformed_data = create_vocab_and_rating_files(output_dir, raw_data, raw_data_metadata)
 
       # do a group-by to create users_for_item and items_for_user
       #create_wals_estimator_inputs(output_dir, transformed_data)

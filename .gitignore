@@ -1,4 +1,5 @@
 .DS_Store
+data
 model
 *.pyc
 __pycache__
@@ -9,3 +10,4 @@ wals_ml_engine.egg-info
 dist
 airflow/deploy/config/settings.yaml
 airflow/deploy/deployment-settings.yaml
+preproc_tft

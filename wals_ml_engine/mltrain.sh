@@ -49,7 +49,7 @@ date
 TIME=`date +"%Y%m%d_%H%M%S"`
 
 # CHANGE TO YOUR BUCKET
-BUCKET="gs://rec_serve"
+BUCKET="gs://recserve_lramsey-recserve-composer"
 
 if [[ $# < 2 ]]; then
   usage
