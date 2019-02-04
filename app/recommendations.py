@@ -101,9 +101,9 @@ class Recommendations(object):
     user_idx = np.searchsorted(self.user_map, user_id)
 
     try:
-      already_rated = self.user_items.get_group(user_id).hotelCode
+      already_rated = self.user_items.get_group(user_id).contentId
     except KeyError:
-      return
+      return None
 
     # get already viewed items from views dataframe
     already_rated_idx = [np.searchsorted(self.item_map, i)
