@@ -14,14 +14,15 @@
 
 
 usage () {
-  echo "usage: mltrain.sh [local | train | tune] [gs://]<input_file>.csv
+  echo "usage: mltrain.sh [local | train | tune] [gs://]job_and_data_dir [path_to/]<input_file>.csv
                   [--data-type ratings|web_views]
                   [--delimiter <delim>]
                   [--use-optimized]
                   [--headers]
 
 Use 'local' to train locally with a local data file, and 'train' and 'tune' to
-run on ML Engine.  For ML Engine jobs the input file must reside on GCS.
+run on ML Engine.  For ML Engine cloud jobs the data_dir must be prefixed with
+gs:// and point to an existing bucket, and the input file must reside on GCS.
 
 Optional args:
   --data-type:      Default to 'ratings', meaning MovieLens ratings from 0-5.
@@ -32,14 +33,14 @@ Optional args:
 
 Examples:
 
-# train locally with unoptimized hyperparams
-./mltrain.sh local ../data/recommendation_events.csv --data-type web_views
+# train locally with unoptimized hyperparams on included web views data set
+./mltrain.sh local ../data recommendation_events.csv --data-type web_views
 
 # train on ML Engine with optimized hyperparams
-./mltrain.sh train gs://rec_serve/data/recommendation_events.csv --data-type web_views --use-optimized
+./mltrain.sh train gs://rec_serve data/recommendation_events.csv --data-type web_views --use-optimized
 
 # tune hyperparams on ML Engine:
-./mltrain.sh tune gs://rec_serve/data/recommendation_events.csv --data-type web_views
+./mltrain.sh tune gs://rec_serve data/recommendation_events.csv --data-type web_views
 "
 
 }
@@ -48,25 +49,26 @@ date
 
 TIME=`date +"%Y%m%d_%H%M%S"`
 
-# CHANGE TO YOUR BUCKET
-BUCKET="gs://rec_serve"
+# change to your preferred region
+REGION=us-central1
 
-if [[ $# < 2 ]]; then
+if [[ $# < 3 ]]; then
   usage
   exit 1
 fi
 
 # set job vars
 TRAIN_JOB="$1"
-TRAIN_FILE="$2"
+BUCKET="$2"
+DATA_FILE="$3"
 JOB_NAME=wals_ml_${TRAIN_JOB}_${TIME}
-REGION=us-central1
 
 # add additional args
-shift; shift
-ARGS="--train-files ${TRAIN_FILE} --verbose-logging $@"
+shift; shift; shift
 
 if [[ ${TRAIN_JOB} == "local" ]]; then
+
+  ARGS="--train-file $BUCKET/${DATA_FILE} --verbose-logging $@"
 
   mkdir -p jobs/${JOB_NAME}
 
@@ -79,6 +81,8 @@ if [[ ${TRAIN_JOB} == "local" ]]; then
 
 elif [[ ${TRAIN_JOB} == "train" ]]; then
 
+  ARGS="--gcs-bucket $BUCKET --train-file ${DATA_FILE} --verbose-logging $@"
+
   gcloud ml-engine jobs submit training ${JOB_NAME} \
     --region $REGION \
     --scale-tier=CUSTOM \
@@ -90,6 +94,8 @@ elif [[ ${TRAIN_JOB} == "train" ]]; then
     ${ARGS}
 
 elif [[ $TRAIN_JOB == "tune" ]]; then
+
+  ARGS="--gcs-bucket $BUCKET --train-file ${DATA_FILE} --verbose-logging $@"
 
   # set configuration for tuning
   CONFIG_TUNE="trainer/config/config_tune.json"

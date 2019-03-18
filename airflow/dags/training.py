@@ -128,7 +128,7 @@ job_id = 'recserve_{0}'.format(datetime.datetime.now().strftime('%Y%m%d%H%M'))
 job_dir = BUCKET + '/jobs/' + job_id
 output_dir = BUCKET
 training_args = ['--job-dir', job_dir,
-                 '--train-files', training_file,
+                 '--train-file', training_file,
                  '--output-dir', output_dir,
                  '--data-type', 'web_views',
                  '--use-optimized']

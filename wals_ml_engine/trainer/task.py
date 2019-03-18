@@ -26,7 +26,7 @@ import wals
 
 def main(args):
   # process input file
-  input_file = util.ensure_local_file(args['train_files'][0])
+  input_file = util.ensure_local_file(args['train_file'])
   user_map, item_map, tr_sparse, test_sparse = model.create_test_and_train_sets(
       args, input_file, args['data_type'])
 
@@ -54,9 +54,8 @@ def parse_arguments():
   parser = argparse.ArgumentParser()
   # required input arguments
   parser.add_argument(
-      '--train-files',
-      help='GCS or local paths to training data',
-      nargs='+',
+      '--train-file',
+      help='path to training data',
       required=True
   )
   parser.add_argument(
@@ -105,6 +104,11 @@ def parse_arguments():
 
   # other args
   parser.add_argument(
+      '--gcs-bucket',
+      help='gcs bucket path for training data',
+      required=False
+  )
+  parser.add_argument(
       '--output-dir',
       help='GCS location to write model, overriding job-dir',
   )
@@ -147,6 +151,10 @@ def parse_arguments():
 
   args = parser.parse_args()
   arguments = args.__dict__
+
+  # add optional gcs path to training data
+  if args.gcs_bucket:
+    args.train_file = os.path.join(args.gcs_bucket, args.train_file)
 
   # set job name as job directory name
   job_dir = args.job_dir
