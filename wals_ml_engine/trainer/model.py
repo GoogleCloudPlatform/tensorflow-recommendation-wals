@@ -115,6 +115,7 @@ def _ratings_train_and_test(use_headers, delimiter, input_file):
                                'rating': np.float32,
                                'timestamp': np.int32,
                            })
+  ratings_df = ratings_df.dropna()
 
   np_users = ratings_df.user_id.as_matrix()
   np_items = ratings_df.item_id.as_matrix()
@@ -173,6 +174,7 @@ def _page_views_train_and_test(input_file):
     sparse coo_matrix for test
   """
   views_df = pd.read_csv(input_file, sep=',', header=0)
+  views_df = views_df.dropna()
 
   df_items = pd.DataFrame({'contentId': views_df.contentId.unique()})
   df_sorted_items = df_items.sort_values('contentId').reset_index()

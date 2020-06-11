@@ -100,20 +100,23 @@ class Recommendations(object):
     # map user id into ratings matrix user index
     user_idx = np.searchsorted(self.user_map, user_id)
 
-    if user_idx:
-      # get already viewed items from views dataframe
+    try:
       already_rated = self.user_items.get_group(user_id).contentId
-      already_rated_idx = [np.searchsorted(self.item_map, i)
-                           for i in already_rated]
+    except KeyError:
+      return None
 
-      # generate list of recommended article indexes from model
-      recommendations = generate_recommendations(user_idx, already_rated_idx,
+    # get already viewed items from views dataframe
+    already_rated_idx = [np.searchsorted(self.item_map, i)
+                         for i in already_rated]
+
+    # generate list of recommended article indexes from model
+    recommendations = generate_recommendations(user_idx, already_rated_idx,
                                                  self.user_factor,
                                                  self.item_factor,
                                                  num_recs)
 
-      # map article indexes back to article ids
-      article_recommendations = [self.item_map[i] for i in recommendations]
+    # map article indexes back to article ids
+    article_recommendations = [self.item_map[i] for i in recommendations]
 
     return article_recommendations
 
