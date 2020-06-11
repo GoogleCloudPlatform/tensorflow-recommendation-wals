@@ -72,7 +72,7 @@ if [[ ${TRAIN_JOB} == "local" ]]; then
 
   mkdir -p jobs/${JOB_NAME}
 
-  gcloud ml-engine local train \
+  gcloud ai-platform local train \
     --module-name trainer.task \
     --package-path trainer \
     -- \
@@ -83,7 +83,7 @@ elif [[ ${TRAIN_JOB} == "train" ]]; then
 
   ARGS="--gcs-bucket $BUCKET --train-file ${DATA_FILE} --verbose-logging $@"
 
-  gcloud ml-engine jobs submit training ${JOB_NAME} \
+  gcloud ai-platform jobs submit training ${JOB_NAME} \
     --region $REGION \
     --scale-tier=CUSTOM \
     --job-dir ${BUCKET}/jobs/${JOB_NAME} \
@@ -106,7 +106,7 @@ elif [[ $TRAIN_JOB == "tune" ]]; then
     fi
   done
 
-  gcloud ml-engine jobs submit training ${JOB_NAME} \
+  gcloud ai-platform jobs submit training ${JOB_NAME} \
     --region ${REGION} \
     --scale-tier=CUSTOM \
     --job-dir ${BUCKET}/jobs/${JOB_NAME} \
