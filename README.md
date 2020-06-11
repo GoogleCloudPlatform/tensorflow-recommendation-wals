@@ -60,7 +60,7 @@ This project assumes Python 2.
 
 * Install miniconda 2:
 
-https://conda.io/docs/user-guide/install/index.html
+https://docs.conda.io/en/latest/miniconda.html#installing
 
 
 * Create environment and install packages:
