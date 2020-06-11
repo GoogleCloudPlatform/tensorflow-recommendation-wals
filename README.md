@@ -1,7 +1,7 @@
-# Recommendations on GCP with TensorFlow and WALS
+# Recommendations on GCP with TensorFlow 1.x and WALS
 
 This project deploys a solution for a recommendation service on GCP, using the WALS
-algorithm in TensorFlow.  Components include:
+algorithm in the contrib.factorization module of TensorFlow 1.x.  Components include:
 
 - Recommendation model code, and scripts to train and tune the model on ML Engine
 - A REST endpoint using [Google Cloud Endpoints](https://cloud.google.com/endpoints/) for serving recommendations
@@ -72,15 +72,16 @@ Install packages in conda.txt:
     source activate recserve
     conda install -y -n recserve --file conda.txt
 
-* Install TensorFlow.
+* Install TensorFlow verssion 1.x.  This code should work with any version of 1.x.  We are using the latest as of June 2020.
+
 
 CPU:
 
-    pip install tensorflow
+    pip install tensorflow==1.15
 
 Or GPU, if one is available in your environment:
 
-    pip install tensorflow-gpu
+    pip install tensorflow-gpu==1.15
 
 Install other requirements not available from conda:
 
@@ -130,7 +131,7 @@ This tutorial comes with a sample Google Analytics data set, containing page tra
 
 2. Run the wals model on the sample data set:
 
-	   ./mltrain.sh local ../data/recommendation_events.csv --data-type web_views --use-optimized
+	   ./mltrain.sh local ../data recommendation_events.csv --data-type web_views --use-optimized
 
 This will take a couple minutes, and create a job directory under wals_ml_engine/jobs like "wals_ml_local_20180102_012345/model", containing the model files saved as numpy arrays.
 
@@ -153,7 +154,6 @@ This step can take several minutes to complete. You can do this in a separate sh
 1. Create the App Engine app in your project:
 
 	   gcloud app create --region=us-east1
-	   gcloud app update --no-split-health-checks
 
 2. Prepare the deploy template for the Cloud Endpoint API:
 
@@ -197,13 +197,13 @@ Cloud Composer is the GCP managed service for Airflow. It is in beta at the time
 
     CC_ENV=composer-recserve
 
-    gcloud beta composer environments create $CC_ENV --location us-central1
+    gcloud composer environments create $CC_ENV --location us-central1
 
 This process takes a few minutes to complete.
 
 2. Get the name of the Cloud Storage bucket created for you by Cloud Composer:
 
-    gcloud beta composer environments describe $CC_ENV \
+    gcloud composer environments describe $CC_ENV \
       --location us-central1 --format="csv[no-heading](config.dagGcsPrefix)" | sed 's/.\{5\}$//'
 
 In the output, you see the location of the Cloud Storage bucket, like this:
@@ -222,7 +222,7 @@ This bucket contains subfolders for DAGs and plugins.
 
 5. Import the solution plugins to your composer environment:
 
-    gcloud beta composer environments storage plugins import \
+    gcloud composer environments storage plugins import \
       --location us-central1 --environment ${CC_ENV} --source airflow/plugins/
 
 
@@ -286,7 +286,7 @@ minutes for the web interface to finish hosting and become accessible.
 
 Type this command to print the URL for the Cloud Composer web console:
 
-    gcloud beta composer environments describe $CC_ENV --location us-central1 \
+    gcloud composer environments describe $CC_ENV --location us-central1 \
         --format="csv[no-heading](config.airflow_uri)"
 
 You see output that looks like the following:

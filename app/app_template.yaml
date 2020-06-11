@@ -27,9 +27,6 @@ resources:
 service:
   default
 
-health_check:
-  enable_health_check: False
-
 #readiness_check:
 #  path: /readiness_check
 #  app_start_timeout_sec: 300
