@@ -88,7 +88,7 @@ def parse_arguments():
   parser.add_argument(
       '--wt_type',
       type=int,
-      help='Rating weight type (0=linear, 1=log)',
+      help='Rating weight type (0=log, 1=linear)',
       default=wals.LINEAR_RATINGS
   )
   parser.add_argument(

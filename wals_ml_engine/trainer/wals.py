@@ -118,7 +118,7 @@ def wals_model(data, dim, reg, unobs, weights=False,
     reg:            regularization constant
     unobs:          unobserved item weight
     weights:        True: set obs weights, False: obs weights = unobs weights
-    wt_type:        feature weight type: linear (0) or log (1)
+    wt_type:        feature weight type: log (0) or linear (1)
     feature_wt_exp: feature weight exponent constant
     obs_wt:         feature weight linear factor constant
 
