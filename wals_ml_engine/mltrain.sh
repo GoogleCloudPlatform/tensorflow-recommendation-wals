@@ -89,6 +89,7 @@ elif [[ ${TRAIN_JOB} == "train" ]]; then
     --job-dir ${BUCKET}/jobs/${JOB_NAME} \
     --module-name trainer.task \
     --package-path trainer \
+    --master-machine-type complex_model_m_gpu \
     --config trainer/config/config_train.json \
     --master-machine-type complex_model_m_gpu \
     --runtime-version 1.15 \
@@ -114,6 +115,7 @@ elif [[ $TRAIN_JOB == "tune" ]]; then
     --job-dir ${BUCKET}/jobs/${JOB_NAME} \
     --module-name trainer.task \
     --package-path trainer \
+    --master-machine-type standard_gpu \
     --config ${CONFIG_TUNE} \
     --master-machine-type complex_model_m_gpu \
     --runtime-version 1.15 \
