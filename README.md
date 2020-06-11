@@ -72,7 +72,7 @@ Install packages in conda.txt:
     source activate recserve
     conda install -y -n recserve --file conda.txt
 
-* Install TensorFlow verssion 1.x.  This code should work with any version of 1.x.  We are using the latest as of June 2020.
+* Install TensorFlow version 1.x.  This code should work with any version of 1.x.  We are using the latest as of June 2020.
 
 
 CPU:
