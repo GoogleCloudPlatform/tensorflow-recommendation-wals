@@ -18,7 +18,7 @@ algorithm in the contrib.factorization module of TensorFlow 1.x.  Components inc
 3. [Enable APIs](https://console.cloud.google.com/apis/dashboard) for
   * BigQuery API
   * Cloud Resource Manager
-  * ML Engine
+  * AI Platform Training & Prediction API
   * App Engine Admin
   * Container Engine (if using Airflow on GKE)
   * Cloud SQL API    (if using Airflow on GKE)

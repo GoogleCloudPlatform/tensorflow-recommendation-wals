@@ -90,6 +90,8 @@ elif [[ ${TRAIN_JOB} == "train" ]]; then
     --module-name trainer.task \
     --package-path trainer \
     --config trainer/config/config_train.json \
+    --master-machine-type complex_model_m_gpu \
+    --runtime-version 1.15 \
     -- \
     ${ARGS}
 
@@ -113,6 +115,8 @@ elif [[ $TRAIN_JOB == "tune" ]]; then
     --module-name trainer.task \
     --package-path trainer \
     --config ${CONFIG_TUNE} \
+    --master-machine-type complex_model_m_gpu \
+    --runtime-version 1.15 \
     -- \
     --hypertune \
     ${ARGS}
