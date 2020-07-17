@@ -343,7 +343,7 @@ def generate_recommendations(user_idx, user_rated, row_factor, col_factor, k):
   """
 
   # bounds checking for args
-  assert (row_factor.shape[0] - len(user_rated)) >= k
+  assert (col_factor.shape[0] - len(user_rated)) >= k
 
   # retrieve user factor
   user_f = row_factor[user_idx]
